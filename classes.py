@@ -207,8 +207,7 @@ class Vector3D:
         return Vector3D.from_cartesian(x=self.x / other, y=self.y / other, z=self.z / other)
 
     # internal functions
-    def __update(self, calc_from: str, do_check: bool = True) -> None:
-        do_check=False
+    def __update(self, calc_from: str) -> None:
         match calc_from:
             case "p":
                 self.__length_xy = np.cos(self.angle_xz) * self.length
@@ -216,16 +215,12 @@ class Vector3D:
                 self.__x = x
                 self.__y = y
                 self.__z = z
-                if do_check:
-                    self.__update("c", do_check=False)
 
             case "c":
                 self.__length_xy = np.sqrt(self.y**2 + self.x**2)
                 self.__angle_xy = np.arctan2(self.y, self.x)
                 self.__angle_xz = np.arctan2(self.z, self.x)
                 self.__length = np.sqrt(self.x**2 + self.y**2 + self.z**2)
-                if do_check:
-                    self.__update("p", do_check=False)
 
     def __repr__(self) -> str:
         return f"<\n" \
@@ -236,6 +231,9 @@ class Vector3D:
 
 
 class WeatherPoint(Entity):
+    """
+    An Entity with weather data mapped to it
+    """
     def __init__(self, station_data: dict, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.station_data = station_data
@@ -251,22 +249,35 @@ class WeatherPoint(Entity):
 
 
 class Selection:
+    """
+    Handles all selected objects
+    """
     def __init__(self) -> None:
         self.__objs: tp.List[WeatherPoint] = []
         self.__colors: list = []
 
     def set(self, objects: tp.List[WeatherPoint]) -> None:
+        """
+        set the selection to a given array of Weahter Points
+        """
         self.clear()
         for point in objects:
             self.add(point)
 
     def add(self, object: WeatherPoint) -> None:
+        """
+        adds a Weather Point to the selection
+        """
         if object not in self.__objs:
             self.__objs.append(object)
             self.__colors.append(object.color)
             object.color = (1, 1, 1, 1)
 
     def clear(self) -> None:
+        """
+        removes all Points from the selection and resets their color
+        :return:
+        """
         for point, c in zip(self.__objs, self.__colors):
             point.color = c
 

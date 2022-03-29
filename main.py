@@ -5,12 +5,37 @@ Main program, runs the 3d simulations
 Author:
 Nilusink
 """
+
+###############################################################################################
+#                                                                                             #
+#     Controls                                                                                #
+#       General                                                                               #
+#           Search Location:    [enter]                                                       #
+#                   Enter the name or coordinates (seperated with a ",") of your desired      #
+#                   location. If any data for this location exists in the api's database,     #
+#                   you will be taken to the newly created point.                             #
+#                                                                                             #
+#           Select:     [left mouse]                                                          #
+#                   Select one weather station and display it's current weather data.         #
+#                   Click somewhere with no existing station to deselect.                     #
+#                                                                                             #
+#           Bulk-Select: [shift + left mouse]                                                 #
+#                   The same as above, but you can select multiple locations.                 #
+#                                                                                             #
+#           Update:     [u]                                                                   #
+#                   Updates the weather data on all selected locations.                       #
+#                                                                                             #
+#       Movement                                                                              #
+#           Rotate: [middle mouse + move mouse]                                               #
+#           Zoom:   [middle mouse wheel]                                                      #
+#                                                                                             #
+###############################################################################################
+
 from threading import Thread
 from random import randint
 from classes import *
 from ursina import *
 import string
-
 
 # ursina text init
 Text.default_resolution = 1080 * Text.size
@@ -182,6 +207,9 @@ class Window(Ursina):
         self.typing_text.create_background()
 
     def check_if_new(self, character: str) -> bool:
+        """
+        check if a character is newly pressed
+        """
         return held_keys[character] and not self.last_time[character]
 
     def update_text(self, station_data: dict) -> None:
@@ -211,7 +239,7 @@ Station: <orange>nAn</><default>
 
     def set_camera(self, latitude: float, longitude: float, animation_time: float) -> None:
         """
-        focus the camera on lat / lon at a given distance
+        focus the camera on lat / lon
         """
         self.cam.position = (0, 0, 0)
 
