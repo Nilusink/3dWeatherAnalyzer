@@ -345,17 +345,22 @@ def request_lat_long(lat: float, long: float, use_original: bool = False) -> Wea
     )
 
 
-def draw_lat_long(data: dict, latitude: float, longitude: float, radius: float = 0.05,
+def draw_lat_long(data: dict, latitude: float, longitude: float, radius: float = 0.088,
                   color: tp.List[float] = (255, 0, 0, 0), origin_radius: float = 1, heading: float = 0) -> WeatherPoint:
     """
     draw a sphere at the given latitude and longitude
     """
-    should = Vector3D.from_polar(angle_xy=longitude*(PI/180), angle_xz=latitude*(PI/180), length=origin_radius)
-    rot = heading, -should.angle_xy*(180/PI), -should.angle_xz*(180/PI)
+    should = Vector3D.from_polar(angle_xy=longitude*(PI/180), angle_xz=latitude*(PI/180), length=origin_radius+.01)
+
+    rot = (
+        latitude,
+        -90 - longitude,
+        heading + 180
+    )
+
     return WeatherPoint(
-        station_data=data, model="sphere", collider="sphere", scale=radius, color=color,
-        x=should.x, y=should.z, z=should.y,
-        rotation=rot
+        station_data=data, model="assets/arrow.obj", collider="sphere", scale=radius, color=color,
+        position=(should.x, should.z, should.y), rotation=rot, origin=(0, 0, 0)
     )
 
 

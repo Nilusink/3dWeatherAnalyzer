@@ -98,10 +98,6 @@ class Window(Ursina):
         self.typing_text = Text(text="", origin=(0, 0), position=(0, 0), backgroud=False)
 
         # place objects
-        # lighting
-        # pivot = Entity()
-        # DirectionalLight(parent=pivot, y=2, z=3, shadows=True, rotation=(45, -45, 45))
-
         # 3d world
         Entity(model=load_model("assets/smooth_sphere.obj"), texture="assets/globe_texture.jpg",
                scale=10, position=(0, 0, 0), rotation=(0, 180, 0))
@@ -120,8 +116,8 @@ class Window(Ursina):
             for _ in range(5):
                 Thread(target=request_random).start()
             # for i in range(-90, 90, 10):
-            #     draw_at(i, 0, use_original=True)
-            #     draw_at(i, 90, use_original=True)
+            #     request_lat_long(i, 0, use_original=True)
+            #     request_lat_long(i, 90, use_original=True)
             self.__loaded = True
 
         if not self.selection:
@@ -216,12 +212,20 @@ class Window(Ursina):
         """"
         update the info box text
         """
+        wind_dir = station_data['current']['wind_degree']+180
+        while wind_dir > 360:
+            wind_dir -= 360
+        while wind_dir < 0:
+            wind_dir += 360
+
         t = dedent(f"""
 Station: <orange>{station_data['location']['name']}</><default>
 Country: {station_data['location']['country']}
 Temperature: {station_data['current']['temp_c']}°C
 Humidity: {station_data['current']['humidity']} %
 Pressure: {station_data['current']['pressure_mb']} mb
+Wind direction: {wind_dir}°
+Wind speed: {station_data['current']['wind_kph']} km/h
 Local Time: {station_data['location']['localtime']}
     """).strip()
         self.info_text.text = t
@@ -248,7 +252,6 @@ Station: <orange>nAn</><default>
             -90 - longitude,
             0
         )
-        # self.cam.animate_position(pos, duration=animation_time)
         self.cam.animate_rotation(rot, duration=animation_time)
 
 
