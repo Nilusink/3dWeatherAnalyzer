@@ -185,12 +185,12 @@ class Window(Ursina):
         used to "write"
         """
         if held_keys["shift"]:
-            for character in string.ascii_lowercase:
+            for character in string.printable+"öäü":
                 if self.check_if_new(character):
                     self.typing_text.text += character.upper()
 
         else:
-            for character in string.printable:
+            for character in string.printable+"öäü":
                 if self.check_if_new(character):
                     self.typing_text.text += character
 
