@@ -13,7 +13,33 @@ import json
 
 
 PI: float = 3.14159265358979323846264338327950288419701
+
+# API key for weatherapi.com
 API_KEY: str = "5c5d3dcedeb54d45999185155222303"
+
+# color defaults
+# temperature
+T_MIN_VAL: int = -60
+T_OPT_VAL: int = 10
+T_MAX_VAL: int = 40
+
+T_MIN_COL: tp.Tuple[int, int, int] = (0, 0, 1)
+T_OPT_COL: tp.Tuple[int, int, int] = (0, 1, 0)
+T_MAX_COL: tp.Tuple[int, int, int] = (1, 0, 0)
+
+# wind
+W_MIN_VAL: int = 0
+W_OPT_VAL: int = 50
+W_MAX_VAL: int = 100
+
+W_MIN_COL: tp.Tuple[int, int, int] = (0, 0, 1)
+W_OPT_COL: tp.Tuple[int, int, int] = (1, 0, 1)
+W_MAX_COL: tp.Tuple[int, int, int] = (1, 0, 0)
+
+# models
+ARROW_MODEL = "assets/arrow.obj"
+SMOOTH_SPHERE = "assets/smooth_sphere.obj"
+SPHERE = "sphere"
 
 
 def float_map(x: float, in_min: float, in_max: float, out_min: float, out_max: float) -> float:
@@ -230,6 +256,68 @@ class Vector3D:
                f">"
 
 
+class PointCollector:
+    instance: "PointCollector" = ...
+
+    def __new__(cls, *args, **kwargs) -> "PointCollector":
+        if cls.instance is not ...:
+            return cls.instance
+
+        cls.instance = super(PointCollector, cls).__new__(cls)
+        return cls.instance
+
+    def __init__(self) -> None:
+        self.__points: tp.List["WeatherPoint"] = []
+
+        self.__dp = "t"
+
+    @property
+    def points(self) -> tp.List["WeatherPoint"]:
+        return self.__points.copy()
+
+    @property
+    def dp(self) -> str:
+        """
+        returns the currently used datapoint
+        """
+        return self.__dp
+
+    def append(self, point: "WeatherPoint") -> None:
+        """
+        append a weather point to the array
+        """
+        self.__points.append(point)
+
+    def update_data(self) -> None:
+        """
+        update the data of all weather stations
+        """
+        for point in self.__points:
+            point.update_data()
+
+    def show_temperature(self) -> None:
+        """
+        change all points to show temperature data
+        """
+        for point in self.__points:
+            point.show_temperature()
+
+        self.__dp = "t"
+
+    def show_wind(self) -> None:
+        """
+        change all points to show wind data
+        """
+        for point in self.__points:
+            point.show_wind()
+
+        self.__dp = "w"
+
+
+# point collector instance
+POINT_COLLECTOR = PointCollector()
+
+
 class WeatherPoint(Entity):
     """
     An Entity with weather data mapped to it
@@ -237,6 +325,15 @@ class WeatherPoint(Entity):
     def __init__(self, station_data: dict, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.station_data = station_data
+
+        match POINT_COLLECTOR.dp:
+            case "t":
+                self.show_temperature()
+
+            case "w":
+                self.show_wind()
+
+        POINT_COLLECTOR.append(self)
 
     def update_data(self) -> None:
         """
@@ -246,6 +343,28 @@ class WeatherPoint(Entity):
             f"http://api.weatherapi.com/v1/current.json?key={API_KEY}&q="
             f"{self.station_data['location']['lat']},{self.station_data['location']['lon']}&aqi=no"
         ).content)
+
+    def show_temperature(self) -> None:
+        """
+        show temperature data
+        """
+        self.color = list(three_color_mapper(
+            T_MIN_VAL, T_MAX_VAL, T_OPT_VAL,
+            self.station_data["current"]["temp_c"],
+            T_MIN_COL, T_OPT_COL, T_MAX_COL
+        )) + [1]
+        self.model = SPHERE
+
+    def show_wind(self) -> None:
+        """
+        show wind data
+        """
+        self.color = list(three_color_mapper(
+            W_MIN_VAL, W_MAX_VAL, W_OPT_VAL,
+            self.station_data["current"]["temp_c"],
+            W_MIN_COL, W_OPT_COL, W_MAX_COL
+        )) + [1]
+        self.model = load_model(ARROW_MODEL, use_deepcopy=True)
 
 
 class Selection:
@@ -264,14 +383,14 @@ class Selection:
         for point in objects:
             self.add(point)
 
-    def add(self, object: WeatherPoint) -> None:
+    def add(self, obj: WeatherPoint) -> None:
         """
         adds a Weather Point to the selection
         """
-        if object not in self.__objs:
-            self.__objs.append(object)
-            self.__colors.append(object.color)
-            object.color = (1, 1, 1, 1)
+        if obj not in self.__objs:
+            self.__objs.append(obj)
+            self.__colors.append(obj.color)
+            obj.color = (1, 1, 1, 1)
 
     def clear(self) -> None:
         """
@@ -284,8 +403,8 @@ class Selection:
         self.__colors, self.__objs = [], []
 
     def __iter__(self) -> tp.Iterator[WeatherPoint]:
-        for object in self.__objs:
-            yield object
+        for obj in self.__objs:
+            yield obj
 
     def __bool__(self) -> bool:
         return not not self.__objs
@@ -302,17 +421,14 @@ def request_name(name: str) -> WeatherPoint | None:
         now_d = json.loads(requests.get(
             f"http://api.weatherapi.com/v1/current.json?key={API_KEY}&q={name}&aqi=no"
         ).content)
-        temp = now_d["current"]["temp_c"]
 
-    except (KeyError, json.decoder.JSONDecodeError):
+    except json.decoder.JSONDecodeError:
         return
 
-    now_col: tp.List[float] = list(three_color_mapper(-60, 40, 10, temp, (0, 0, 1), (0, 1, 0), (1, 0, 0))) + [255]
     return draw_lat_long(
         now_d,
         now_d["location"]["lat"],
         now_d["location"]["lon"],
-        color=now_col,
         origin_radius=5,
         heading=now_d["current"]["wind_degree"]
     )
@@ -329,24 +445,21 @@ def request_lat_long(lat: float, long: float, use_original: bool = False) -> Wea
         now_d = json.loads(requests.get(
             f"http://api.weatherapi.com/v1/current.json?key={API_KEY}&q={lat},{long}&aqi=no"
         ).content)
-        temp = now_d["current"]["temp_c"]
 
-    except (KeyError, json.decoder.JSONDecodeError):
+    except json.decoder.JSONDecodeError:
         return
 
-    now_col: tp.List[float] = list(three_color_mapper(-60, 40, 10, temp, (0, 0, 1), (0, 1, 0), (1, 0, 0))) + [255]
     return draw_lat_long(
         now_d,
         lat if use_original else now_d["location"]["lat"],
         long if use_original else now_d["location"]["lon"],
-        color=now_col,
         origin_radius=5,
         heading=now_d["current"]["wind_degree"]
     )
 
 
 def draw_lat_long(data: dict, latitude: float, longitude: float, radius: float = 0.088,
-                  color: tp.List[float] = (255, 0, 0, 0), origin_radius: float = 1, heading: float = 0) -> WeatherPoint:
+                  origin_radius: float = 1, heading: float = 0) -> WeatherPoint:
     """
     draw a sphere at the given latitude and longitude
     """
@@ -359,7 +472,7 @@ def draw_lat_long(data: dict, latitude: float, longitude: float, radius: float =
     )
 
     return WeatherPoint(
-        station_data=data, model="assets/arrow.obj", collider="sphere", scale=radius, color=color,
+        station_data=data, model="sphere", collider="sphere", scale=radius,
         position=(should.x, should.z, should.y), rotation=rot, origin=(0, 0, 0)
     )
 

@@ -40,6 +40,7 @@ import string
 # ursina text init
 Text.default_resolution = 1080 * Text.size
 
+# defaults
 TOTAL_POINTS: int = 0
 MAX_POINTS: int = 5000
 RUNNING: bool = True
@@ -140,6 +141,12 @@ class Window(Ursina):
             if held_keys["u"]:
                 for point in self.selection:
                     Thread(target=point.update_data).start()
+
+            if held_keys["t"] and not held_keys["w"]:
+                POINT_COLLECTOR.show_temperature()
+
+            elif held_keys["w"] and not held_keys["t"]:
+                POINT_COLLECTOR.show_wind()
 
         else:
             if held_keys["enter"] and not self.last_time["enter"]:
