@@ -5,6 +5,10 @@ Defines functions and classes used in main.py
 Author:
 Nilusink
 """
+from FlightRadar24.api import FlightRadar24API
+from FlightRadar24.flight import Flight
+from contextlib import suppress
+from threading import Timer, Thread
 from ursina import *
 import typing as tp
 import numpy as np
@@ -36,10 +40,18 @@ W_MIN_COL: tp.Tuple[int, int, int] = (0, 0, 1)
 W_OPT_COL: tp.Tuple[int, int, int] = (1, 0, 1)
 W_MAX_COL: tp.Tuple[int, int, int] = (1, 0, 0)
 
+# altitude vars
+BASE_LENGTH: float = 5
+MEAD_RADIUS_FOOT: float = 20902230.97
+
 # models
 ARROW_MODEL = "assets/arrow.obj"
 SMOOTH_SPHERE = "assets/smooth_sphere.obj"
 SPHERE = "sphere"
+
+
+def foot_to_length(altitude: float) -> float:
+    return ((altitude + MEAD_RADIUS_FOOT) / MEAD_RADIUS_FOOT) * BASE_LENGTH
 
 
 def float_map(x: float, in_min: float, in_max: float, out_min: float, out_max: float) -> float:
@@ -268,6 +280,7 @@ class PointCollector:
 
     def __init__(self) -> None:
         self.__points: tp.List["WeatherPoint"] = []
+        self.__hidden: bool = False
 
         self.__dp = "t"
 
@@ -287,6 +300,8 @@ class PointCollector:
         append a weather point to the array
         """
         self.__points.append(point)
+        if self.__hidden:
+            point.disable()
 
     def update_data(self) -> None:
         """
@@ -299,7 +314,9 @@ class PointCollector:
         """
         change all points to show temperature data
         """
+        self.__hidden = False
         for point in self.__points:
+            point.enable()
             point.show_temperature()
 
         self.__dp = "t"
@@ -308,10 +325,17 @@ class PointCollector:
         """
         change all points to show wind data
         """
+        self.__hidden = False
         for point in self.__points:
+            point.enable()
             point.show_wind()
 
         self.__dp = "w"
+
+    def hide(self) -> None:
+        self.__hidden = True
+        for point in self.__points:
+            point.disable()
 
 
 # point collector instance
@@ -319,6 +343,8 @@ POINT_COLLECTOR = PointCollector()
 
 
 class WeatherPoint(Entity):
+    active_color: tuple[float, float, float, float] = (1, 1, 1, 1)
+
     """
     An Entity with weather data mapped to it
     """
@@ -348,6 +374,7 @@ class WeatherPoint(Entity):
         """
         show temperature data
         """
+        self.scale = 0.05
         self.color = list(three_color_mapper(
             T_MIN_VAL, T_MAX_VAL, T_OPT_VAL,
             self.station_data["current"]["temp_c"],
@@ -359,12 +386,196 @@ class WeatherPoint(Entity):
         """
         show wind data
         """
+        self.scale = 0.088
         self.color = list(three_color_mapper(
             W_MIN_VAL, W_MAX_VAL, W_OPT_VAL,
             self.station_data["current"]["temp_c"],
             W_MIN_COL, W_OPT_COL, W_MAX_COL
         )) + [1]
         self.model = load_model(ARROW_MODEL, use_deepcopy=True)
+
+
+class FlightHandler(FlightRadar24API):
+    update_interval: float = 2
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        flights = self.get_flights()
+
+        # later used variables
+        self.__shown: bool = True
+        self._flights: dict[str, Airplane] = {}
+        self.airlines: dict[str, dict] = {}
+
+        self.timer: Timer = ...
+
+        # [threaded] for creating airplane instances and downloading airlines
+        def tmp():
+            # update airline database
+            airlines = self.get_airlines()
+            for airline in airlines:
+                self.airlines[airline["ICAO"]] = airline
+
+            # create Airplane instances
+            for flight in flights:
+                if flight.icao_24bit in self._flights:
+                    self.remove(self._flights[flight.icao_24bit])
+
+                self._flights[flight.icao_24bit] = Airplane(flight, self)
+
+            # schedule Airplane updates
+            self.timer = Timer(
+                interval=self.update_interval,
+                function=lambda: Thread(target=self.update).start()
+            )
+            self.timer.start()
+
+        Thread(target=tmp).start()
+
+    @property
+    def show(self) -> bool:
+        return self.__shown
+
+    @show.setter
+    def show(self, value: bool) -> None:
+        self.__shown = value
+        for flight in self._flights.copy().values():
+            if value:
+                flight.enable()
+                continue
+
+            flight.disable()
+
+    def update(self) -> None:
+        """
+        updates the position and other positions of the airplanes
+        """
+        flights = self.get_flights()
+        n = 0
+        updated: list[Airplane] = []
+        for flight in flights:
+            if flight.icao_24bit not in self._flights:
+                n += 1
+                self._flights[flight.icao_24bit] = Airplane(flight, self)
+
+            self._flights[flight.icao_24bit].update_data(flight)
+            updated.append(self._flights[flight.icao_24bit])
+
+        # delete flights not in updated list
+        for flight in {*self._flights.values()} - {*updated}:
+            self.remove(flight)
+
+        # reschedule update
+        self.timer = Timer(interval=self.update_interval, function=lambda: Thread(target=self.update).start())
+        self.timer.start()
+
+    def remove(self, flight: "Airplane") -> None:
+        # remove and disable an Airplane
+        self._flights.pop(flight.flight.icao_24bit)
+        flight.disable()
+        destroy(flight)
+
+    def end(self) -> None:
+        # remove all airplanes and cancel the timer
+        if self.timer is not ...:
+            self.timer.cancel()
+
+        for airplane in self._flights.copy().values():
+            self.remove(airplane)
+
+
+class Airplane(Entity):
+    base_model_path: str = "./assets/airplane/lp_747_no_texture.obj"
+    active_color: tuple[float, float, float, float] = (0, 1, .1, 1)
+    update_time: float = .5
+    size: float = .05
+
+    def __init__(self, flight: Flight, api: FlightHandler, model: str = ..., **kwargs):
+        # directly disables the Entity if airplanes are (globally) not shown
+        if not api.show:
+            self.disable()
+
+        # get airline information
+        self.airline = {
+            "Name": flight.airline_icao
+        }
+        if flight.airline_icao in api.airlines:
+            self.airline = api.airlines[flight.airline_icao]
+
+        self.api: FlightRadar24API = api
+        self.flight: Flight = flight
+
+        if model is ...:
+            model = self.base_model_path
+
+        # calculate correct position for airplane
+        should = Vector3D.from_polar(
+            angle_xy=flight.longitude * (PI / 180),
+            angle_xz=flight.latitude * (PI / 180),
+            length=foot_to_length(flight.altitude)
+        )
+
+        rot = (
+            flight.latitude,
+            -90 - flight.longitude,
+            flight.heading
+        )
+
+        # initialize parent class (Entity)
+        super().__init__(
+            model=load_model(model, use_deepcopy=True),
+            collider="sphere",
+            color=(.8, .8, .8, 1),
+            scale=self.size,
+            position=(should.x, should.z, should.y),
+            rotation=rot,
+            origin=(0, 0, 0),
+            **kwargs,
+        )
+
+        self._origin_airport: dict = ...
+        self._destination_airport: dict = ...
+
+        if self.flight.squawk != "N/A":
+            print(f"SQUAWK {self.flight.squawk} at flight {self.flight.icao_24bit}: {flight}")
+
+    @property
+    def origin_airport(self) -> dict:
+        if self._origin_airport is ...:
+            with suppress(KeyError):
+                self._origin_airport = self.api.get_airport(self.flight.origin_airport_iata)
+
+        return self._origin_airport
+
+    @property
+    def destination_airport(self) -> dict:
+        if self._destination_airport is ...:
+            with suppress(KeyError):
+                self._destination_airport = self.api.get_airport(self.flight.destination_airport_iata)
+
+        return self._destination_airport
+
+    def update_data(self, flight: Flight = ...) -> None:
+        """
+        update airplane position, rotation and other values
+        """
+        if flight is ...:
+            return
+
+        self.flight = flight
+        should = Vector3D.from_polar(
+            angle_xy=self.flight.longitude * (PI / 180),
+            angle_xz=self.flight.latitude * (PI / 180),
+            length=foot_to_length(self.flight.altitude)
+        )
+
+        rot = (
+            self.flight.latitude,
+            -90 - self.flight.longitude,
+            self.flight.heading
+        )
+        self.rotation = rot
+        self.position = should.x, should.z, should.y
 
 
 class Selection:
@@ -375,7 +586,7 @@ class Selection:
         self.__objs: tp.List[WeatherPoint] = []
         self.__colors: list = []
 
-    def set(self, objects: tp.List[WeatherPoint]) -> None:
+    def set(self, objects: tp.List[WeatherPoint] | Airplane) -> None:
         """
         set the selection to a given array of Weahter Points
         """
@@ -390,7 +601,7 @@ class Selection:
         if obj not in self.__objs:
             self.__objs.append(obj)
             self.__colors.append(obj.color)
-            obj.color = (1, 1, 1, 1)
+            obj.color = obj.active_color
 
     def clear(self) -> None:
         """
@@ -402,9 +613,19 @@ class Selection:
 
         self.__colors, self.__objs = [], []
 
-    def __iter__(self) -> tp.Iterator[WeatherPoint]:
+    def __iter__(self) -> tp.Iterator[WeatherPoint | Airplane]:
         for obj in self.__objs:
             yield obj
+
+    def __getitem__(self, item: int) -> Airplane | WeatherPoint | None:
+        if not self.__bool__():
+            return
+
+        tmp = self.__iter__()
+        for _ in range(item):
+            next(tmp)
+
+        return next(tmp)
 
     def __bool__(self) -> bool:
         return not not self.__objs
@@ -421,6 +642,8 @@ def request_name(name: str) -> WeatherPoint | None:
         now_d = json.loads(requests.get(
             f"http://api.weatherapi.com/v1/current.json?key={API_KEY}&q={name}&aqi=no"
         ).content)
+        if "location" not in now_d:
+            return
 
     except json.decoder.JSONDecodeError:
         return
@@ -429,7 +652,6 @@ def request_name(name: str) -> WeatherPoint | None:
         now_d,
         now_d["location"]["lat"],
         now_d["location"]["lon"],
-        origin_radius=5,
         heading=now_d["current"]["wind_degree"]
     )
 
@@ -449,21 +671,22 @@ def request_lat_long(lat: float, long: float, use_original: bool = False) -> Wea
     except json.decoder.JSONDecodeError:
         return
 
+    if "location" not in now_d:
+        return
+
     return draw_lat_long(
         now_d,
         lat if use_original else now_d["location"]["lat"],
         long if use_original else now_d["location"]["lon"],
-        origin_radius=5,
         heading=now_d["current"]["wind_degree"]
     )
 
 
-def draw_lat_long(data: dict, latitude: float, longitude: float, radius: float = 0.088,
-                  origin_radius: float = 1, heading: float = 0) -> WeatherPoint:
+def draw_lat_long(data: dict, latitude: float, longitude: float, radius: float = 0.05, heading: float = 0) -> WeatherPoint:
     """
     draw a sphere at the given latitude and longitude
     """
-    should = Vector3D.from_polar(angle_xy=longitude*(PI/180), angle_xz=latitude*(PI/180), length=origin_radius+.01)
+    should = Vector3D.from_polar(angle_xy=longitude*(PI/180), angle_xz=latitude*(PI/180), length=BASE_LENGTH + .01)
 
     rot = (
         latitude,

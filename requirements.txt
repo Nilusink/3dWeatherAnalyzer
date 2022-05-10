@@ -1,4 +1,5 @@
 # install with python3.x -m pip install -r requirements.txt
+FlightRadarAPI
 requests
 ursina
 numpy

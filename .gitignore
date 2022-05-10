@@ -131,3 +131,6 @@ dmypy.json
 # custom
 .xml
 .idea/
+icons/
+.blend
+.blend1
