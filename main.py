@@ -34,15 +34,14 @@ from random import randint
 from classes import *
 from ursina import *
 import string
-import sys
-import os
+import json
 
 # ursina text init
 Text.default_resolution = 1080 * Text.size
 
 # defaults
 TOTAL_POINTS: int = 0
-MAX_POINTS: int = 1_000
+MAX_POINTS: int = 3_000
 RUNNING: bool = True
 
 
@@ -53,6 +52,13 @@ def request_structural() -> None:
     global TOTAL_POINTS
     max_num = 36 * 18
     TOTAL_POINTS += max_num
+    with open("./data/capitals.json") as inp:
+        capitals = [country["capital"] for country in json.load(inp)]
+    for capital in capitals:
+        request_name(capital)
+        if not RUNNING:
+            return
+
     for x in range(-90, 90, 10):
         for y in range(-180, 180, 10):
             request_lat_long(x + randint(0, 1000) / 100, y + randint(0, 1000) / 100)
@@ -75,6 +81,7 @@ def request_random() -> None:
 
 class Window(Ursina):
     def __init__(self) -> None:
+
         super().__init__()
         self.cam = EditorCamera()
 
@@ -88,7 +95,7 @@ class Window(Ursina):
         # configure window
         window.title = 'Weather'
         window.borderless = True
-        window.fullscreen = self.fullscreen
+        window.fullscreen = True
         window.exit_button.visible = False
         window.fps_counter.enabled = True
         window.color = (0, 0, 0, 0)
@@ -102,7 +109,7 @@ class Window(Ursina):
 
         # place objects
         # 3d world
-        Entity(model=load_model("assets/smooth_sphere.obj"), texture="assets/globe_texture.jpg",
+        x = Entity(model=load_model("assets/smooth_sphere.obj"), texture="assets/globe_texture.jpg",
                scale=10, position=(0, 0, 0), rotation=(0, 180, 0))
 
         # set camera position

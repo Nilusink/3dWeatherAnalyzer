@@ -15,7 +15,6 @@ import numpy as np
 import requests
 import json
 
-
 PI: float = 3.14159265358979323846264338327950288419701
 
 # API key for weatherapi.com
@@ -237,7 +236,11 @@ class Vector3D:
 
     def __mul__(self, other) -> "Vector3D":
         if type(other) == Vector3D:
-            return Vector3D.from_polar(angle_xy=self.angle_xy + other.angle_xy, angle_xz=self.angle_xz + other.angle_xz, length=self.length * other.length)
+            return Vector3D.from_polar(
+                angle_xy=self.angle_xy + other.angle_xy,
+                angle_xz=self.angle_xz + other.angle_xz,
+                length=self.length * other.length
+            )
 
         return Vector3D.from_cartesian(x=self.x * other, y=self.y * other, z=self.z * other)
 
@@ -471,9 +474,10 @@ class FlightHandler(FlightRadar24API):
 
     def remove(self, flight: "Airplane") -> None:
         # remove and disable an Airplane
-        self._flights.pop(flight.flight.icao_24bit)
-        flight.disable()
-        destroy(flight)
+        with suppress(KeyError):
+            self._flights.pop(flight.flight.icao_24bit)
+            flight.disable()
+            destroy(flight)
 
     def end(self) -> None:
         # remove all airplanes and cancel the timer
@@ -485,7 +489,7 @@ class FlightHandler(FlightRadar24API):
 
 
 class Airplane(Entity):
-    base_model_path: str = "./assets/airplane/lp_747_no_texture.obj"
+    base_model_path: str = "./assets/airplane/pa.obj"
     active_color: tuple[float, float, float, float] = (0, 1, .1, 1)
     update_time: float = .5
     size: float = .05
@@ -501,6 +505,8 @@ class Airplane(Entity):
         }
         if flight.airline_icao in api.airlines:
             self.airline = api.airlines[flight.airline_icao]
+
+        # self.shader = lit_with_shadows_shader
 
         self.api: FlightRadar24API = api
         self.flight: Flight = flight
@@ -525,7 +531,7 @@ class Airplane(Entity):
         super().__init__(
             model=load_model(model, use_deepcopy=True),
             collider="sphere",
-            color=(.8, .8, .8, 1),
+            color=(.9, .9, .9, 1),
             scale=self.size,
             position=(should.x, should.z, should.y),
             rotation=rot,
@@ -682,7 +688,9 @@ def request_lat_long(lat: float, long: float, use_original: bool = False) -> Wea
     )
 
 
-def draw_lat_long(data: dict, latitude: float, longitude: float, radius: float = 0.05, heading: float = 0) -> WeatherPoint:
+def draw_lat_long(
+        data: dict, latitude: float, longitude: float, radius: float = 0.05, heading: float = 0
+) -> WeatherPoint:
     """
     draw a sphere at the given latitude and longitude
     """
@@ -708,13 +716,19 @@ def three_color_mapper(min_value: float, max_value: float, optimal_value: float,
     :return: (r, g, b)
     """
     # calculation for optimal value
-    optimal_color = np.array(optimal_color) * float_map(abs(now_value - optimal_value), 0, (max_value - optimal_value), 1, 0)
+    optimal_color = np.array(optimal_color) * float_map(
+        abs(now_value - optimal_value), 0, (max_value - optimal_value), 1, 0
+    )
 
     # calculation for maximal value
-    max_color = np.array(max_color) * (0.0 if (now_value < optimal_value) else (1 if (now_value > max_value) else float_map(now_value, optimal_value, max_value, 0, 1)))
+    max_color = np.array(max_color) * (0.0 if (now_value < optimal_value) else
+                                       (1 if (now_value > max_value) else
+                                        float_map(now_value, optimal_value, max_value, 0, 1)))
 
     # calculation for minimal value
-    min_color = np.array(min_color) * (0.0 if (now_value > optimal_value) else (1 if (now_value < min_value) else float_map(now_value, min_value, optimal_value, 1, 0)))
+    min_color = np.array(min_color) * (0.0 if (now_value > optimal_value) else
+                                       (1 if (now_value < min_value) else
+                                        float_map(now_value, min_value, optimal_value, 1, 0)))
 
     out = min_color + optimal_color + max_color
 
