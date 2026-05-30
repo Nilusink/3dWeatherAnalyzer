@@ -79,7 +79,7 @@ def request_random() -> None:
             return
 
 
-class Window(Ursina):
+class Window:
     def __init__(self) -> None:
 
         super().__init__()
@@ -109,7 +109,7 @@ class Window(Ursina):
 
         # place objects
         # 3d world
-        x = Entity(model=load_model("assets/smooth_sphere.obj"), texture="assets/globe_texture.jpg",
+        self.x = Entity(model=load_model("assets/smooth_sphere.obj"), texture="assets/globe_texture.jpg",
                scale=10, position=(0, 0, 0), rotation=(0, 180, 0))
 
         # set camera position
@@ -139,7 +139,7 @@ class Window(Ursina):
         self.controls_label.text = self.controls_label_text
         self.controls_label.create_background()
 
-        self.flight_handler: FlightHandler = ...
+        # self.flight_handler: FlightHandler = ...
 
     @property
     def fullscreen(self) -> bool:
@@ -162,14 +162,14 @@ class Window(Ursina):
                 Thread(target=request_random).start()
 
             # generate airplanes
-            self.flight_handler = FlightHandler()
+            # self.flight_handler = FlightHandler()
             self.__loaded = True
 
         if not self.selection:
             self.clear_text()
 
-        if issubclass(type(self.selection[0]), Airplane):
-            self.update_airplane_text(self.selection[0])
+        # if issubclass(type(self.selection[0]), Airplane):
+            # self.update_airplane_text(self.selection[0])
 
         if mouse.left:
             now_point = mouse.hovered_entity
@@ -179,7 +179,7 @@ class Window(Ursina):
                     self.selection.add(now_point) if held_keys["shift"] else self.selection.set([now_point])
 
                 elif issubclass(type(now_point), Airplane):
-                    self.update_airplane_text(now_point)
+                    # self.update_airplane_text(now_point)
                     self.selection.add(now_point) if held_keys["shift"] else self.selection.set([now_point])
 
             else:
@@ -215,14 +215,14 @@ class Window(Ursina):
                 if self.controls_label_shown:
                     self.controls_label.create_background()
 
-            if held_keys["p"] and not self.last_time["p"]:
-                self.flight_handler.show = not self.flight_handler.show
+            # if held_keys["p"] and not self.last_time["p"]:
+            #     self.flight_handler.show = not self.flight_handler.show
 
             if held_keys["e"] and not self.last_time["e"]:
                 POINT_COLLECTOR.hide()
 
             if held_keys["a"] and not self.last_time["a"]:
-                self.flight_handler.show = False
+                # self.flight_handler.show = False
                 POINT_COLLECTOR.hide()
 
         else:
@@ -341,95 +341,95 @@ class Window(Ursina):
         self.info_text.text = t
         self.info_text.create_background()
 
-    def update_airplane_text(self, plane: Airplane) -> None:
-        """"
-        update the info box text (airplanes)
-        """
-        self.info_text.position = (-.60, .12)
-
-        if plane.origin_airport is not ...:
-            origin_airport_name = plane.origin_airport["name"]
-            origin_airport_country = plane.origin_airport["position"]["country"]["name"]
-            origin_airport_country = f"( {origin_airport_country} )"
-
-        else:
-            origin_airport_name = plane.flight.origin_airport_iata
-            origin_airport_country = ""
-
-        if plane.destination_airport is not ...:
-            destination_airport_name = plane.destination_airport["name"]
-            destination_airport_country = plane.destination_airport["position"]["country"]["name"]
-            destination_airport_country = f"( {destination_airport_country} )"
-
-        else:
-            destination_airport_name = plane.flight.destination_airport_iata
-            destination_airport_country = ""
-
-        lat = f"{abs(plane.flight.latitude)}° {'E' if plane.flight.latitude >= 0 else 'W'}"
-        lon = f"{abs(plane.flight.longitude)}° {'N' if plane.flight.longitude >= 0 else 'S'}"
-
-        # to always get the same background
-        t = dedent(f"""
-        Flight: <orange><default>
-        <scale:0.8>Airline: <orange><default>
-
-        <scale:0.8>from:
-        ……………………………………………………………………
-        <scale:0.8>to:
-
-
-        <orange>Speed<default>
-        on ground:
-        ground speed:
-        vertical speed:
-
-        <orange>Position<default>
-        lat: <gray>{lat}<default>
-        lon: <gray>{lon}<default>
-        altitude:
-        heading:
-
-        <orange>Flight<default>
-        callsign:
-        SQUAWK code:
-
-        <orange>Airplane<default>
-        aircraft code:
-        registration:
-        """).strip()
-        self.info_text.text = t
-        self.info_text.create_background()
-
-        # actual text editing
-        t = dedent(f"""
-        Flight: <orange>{plane.flight.icao_24bit}<default>
-        <scale:0.8>Airline: <orange>{plane.airline['Name']}<default>
-
-        <scale:0.8>from:
-        <scale:0.6>{origin_airport_name} {origin_airport_country}
-        <scale:0.8>to:
-        <scale:0.6>{destination_airport_name} {destination_airport_country}<scale:1.0>
-
-        <orange>Speed<default>
-        on ground: {'<green>yes' if plane.flight.on_ground else '<red>no'}<default>
-        ground speed: <gray>{plane.flight.get_ground_speed()}<default>
-        vertical speed: <gray>{plane.flight.get_vertical_speed()}<default>
-
-        <orange>Position<default>
-        lat: <gray>{lat}<default>
-        lon: <gray>{lon}<default>
-        altitude: <gray>{plane.flight.get_altitude()}<default>
-        heading: <gray>{plane.flight.get_heading()}<default>
-        
-        <orange>Flight<default>
-        callsign: <gray>{plane.flight.callsign}<default>
-        SQUAWK code: {'<gray>' if plane.flight.squawk == 'N/A' else '<red>'}{plane.flight.squawk}<default>
-        
-        <orange>Airplane<default>
-        aircraft code: <gray>{plane.flight.aircraft_code}<default>
-        registration: <gray>{plane.flight.registration}<default>
-        """).strip()
-        self.info_text.text = t
+    # def update_airplane_text(self, plane: Airplane) -> None:
+    #     """"
+    #     update the info box text (airplanes)
+    #     """
+    #     self.info_text.position = (-.60, .12)
+    #
+    #     if plane.origin_airport is not ...:
+    #         origin_airport_name = plane.origin_airport["name"]
+    #         origin_airport_country = plane.origin_airport["position"]["country"]["name"]
+    #         origin_airport_country = f"( {origin_airport_country} )"
+    #
+    #     else:
+    #         origin_airport_name = plane.flight.origin_airport_iata
+    #         origin_airport_country = ""
+    #
+    #     if plane.destination_airport is not ...:
+    #         destination_airport_name = plane.destination_airport["name"]
+    #         destination_airport_country = plane.destination_airport["position"]["country"]["name"]
+    #         destination_airport_country = f"( {destination_airport_country} )"
+    #
+    #     else:
+    #         destination_airport_name = plane.flight.destination_airport_iata
+    #         destination_airport_country = ""
+    #
+    #     lat = f"{abs(plane.flight.latitude)}° {'E' if plane.flight.latitude >= 0 else 'W'}"
+    #     lon = f"{abs(plane.flight.longitude)}° {'N' if plane.flight.longitude >= 0 else 'S'}"
+    #
+    #     # to always get the same background
+    #     t = dedent(f"""
+    #     Flight: <orange><default>
+    #     <scale:0.8>Airline: <orange><default>
+    #
+    #     <scale:0.8>from:
+    #     ……………………………………………………………………
+    #     <scale:0.8>to:
+    #
+    #
+    #     <orange>Speed<default>
+    #     on ground:
+    #     ground speed:
+    #     vertical speed:
+    #
+    #     <orange>Position<default>
+    #     lat: <gray>{lat}<default>
+    #     lon: <gray>{lon}<default>
+    #     altitude:
+    #     heading:
+    #
+    #     <orange>Flight<default>
+    #     callsign:
+    #     SQUAWK code:
+    #
+    #     <orange>Airplane<default>
+    #     aircraft code:
+    #     registration:
+    #     """).strip()
+    #     self.info_text.text = t
+    #     self.info_text.create_background()
+    #
+    #     # actual text editing
+    #     t = dedent(f"""
+    #     Flight: <orange>{plane.flight.icao_24bit}<default>
+    #     <scale:0.8>Airline: <orange>{plane.airline['Name']}<default>
+    #
+    #     <scale:0.8>from:
+    #     <scale:0.6>{origin_airport_name} {origin_airport_country}
+    #     <scale:0.8>to:
+    #     <scale:0.6>{destination_airport_name} {destination_airport_country}<scale:1.0>
+    #
+    #     <orange>Speed<default>
+    #     on ground: {'<green>yes' if plane.flight.on_ground else '<red>no'}<default>
+    #     ground speed: <gray>{plane.flight.get_ground_speed()}<default>
+    #     vertical speed: <gray>{plane.flight.get_vertical_speed()}<default>
+    #
+    #     <orange>Position<default>
+    #     lat: <gray>{lat}<default>
+    #     lon: <gray>{lon}<default>
+    #     altitude: <gray>{plane.flight.get_altitude()}<default>
+    #     heading: <gray>{plane.flight.get_heading()}<default>
+    #
+    #     <orange>Flight<default>
+    #     callsign: <gray>{plane.flight.callsign}<default>
+    #     SQUAWK code: {'<gray>' if plane.flight.squawk == 'N/A' else '<red>'}{plane.flight.squawk}<default>
+    #
+    #     <orange>Airplane<default>
+    #     aircraft code: <gray>{plane.flight.aircraft_code}<default>
+    #     registration: <gray>{plane.flight.registration}<default>
+    #     """).strip()
+    #     self.info_text.text = t
 
     def clear_text(self) -> None:
         """
@@ -457,19 +457,24 @@ class Window(Ursina):
 
     def end(self) -> None:
         print(f"closing...")
-        self.flight_handler.end()
+        # self.flight_handler.end()
         print(f"shutdown threads")
         sys.exit(0)
 
 
-if __name__ == '__main__':
-    def update() -> None:
-        """
-        ursina bound function
-        """
-        w.update()
+def update() -> None:
+    """
+    ursina bound function
+    """
+    global w
+    w.update()
 
-    w = Window()
-    w.run()
+
+app = Ursina()
+w = Window()
+
+
+if __name__ == '__main__':
+    app.run()
 
     RUNNING = False

@@ -5,8 +5,8 @@ Defines functions and classes used in main.py
 Author:
 Nilusink
 """
-from FlightRadar24.api import FlightRadar24API
-from FlightRadar24.flight import Flight
+# from FlightRadar24.api import FlightRadar24API
+# from FlightRadar24.flight import Flight
 from contextlib import suppress
 from threading import Timer, Thread
 from ursina import *
@@ -398,190 +398,193 @@ class WeatherPoint(Entity):
         self.model = load_model(ARROW_MODEL, use_deepcopy=True)
 
 
-class FlightHandler(FlightRadar24API):
-    update_interval: float = 2
+# class FlightHandler(FlightRadar24API):
+#     update_interval: float = 2
+#
+#     def __init__(self, *args, **kwargs) -> None:
+#         super().__init__(*args, **kwargs)
+#         flights = self.get_flights()
+#
+#         # later used variables
+#         self.__shown: bool = True
+#         self._flights: dict[str, Airplane] = {}
+#         self.airlines: dict[str, dict] = {}
+#
+#         self.timer: Timer = ...
+#
+#         # [threaded] for creating airplane instances and downloading airlines
+#         def tmp():
+#             # update airline database
+#             airlines = self.get_airlines()
+#             for airline in airlines:
+#                 self.airlines[airline["ICAO"]] = airline
+#
+#             # create Airplane instances
+#             for flight in flights:
+#                 if flight.icao_24bit in self._flights:
+#                     self.remove(self._flights[flight.icao_24bit])
+#
+#                 self._flights[flight.icao_24bit] = Airplane(flight, self)
+#
+#             # schedule Airplane updates
+#             self.timer = Timer(
+#                 interval=self.update_interval,
+#                 function=lambda: Thread(target=self.update).start()
+#             )
+#             self.timer.start()
+#
+#         Thread(target=tmp).start()
+#
+#     @property
+#     def show(self) -> bool:
+#         return self.__shown
+#
+#     @show.setter
+#     def show(self, value: bool) -> None:
+#         self.__shown = value
+#         for flight in self._flights.copy().values():
+#             if value:
+#                 flight.enable()
+#                 continue
+#
+#             flight.disable()
+#
+#     def update(self) -> None:
+#         """
+#         updates the position and other positions of the airplanes
+#         """
+#         flights = self.get_flights()
+#         n = 0
+#         updated: list[Airplane] = []
+#         for flight in flights:
+#             if flight.icao_24bit not in self._flights:
+#                 n += 1
+#                 self._flights[flight.icao_24bit] = Airplane(flight, self)
+#
+#             self._flights[flight.icao_24bit].update_data(flight)
+#             updated.append(self._flights[flight.icao_24bit])
+#
+#         # delete flights not in updated list
+#         for flight in {*self._flights.values()} - {*updated}:
+#             self.remove(flight)
+#
+#         # reschedule update
+#         self.timer = Timer(interval=self.update_interval, function=lambda: Thread(target=self.update).start())
+#         self.timer.start()
+#
+#     def remove(self, flight: "Airplane") -> None:
+#         # remove and disable an Airplane
+#         with suppress(KeyError):
+#             self._flights.pop(flight.flight.icao_24bit)
+#             flight.disable()
+#             destroy(flight)
+#
+#     def end(self) -> None:
+#         # remove all airplanes and cancel the timer
+#         if self.timer is not ...:
+#             self.timer.cancel()
+#
+#         for airplane in self._flights.copy().values():
+#             self.remove(airplane)
+#
+#
+# class Airplane(Entity):
+#     base_model_path: str = "./assets/airplane/pa.obj"
+#     active_color: tuple[float, float, float, float] = (0, 1, .1, 1)
+#     update_time: float = .5
+#     size: float = .05
+#
+#     def __init__(self, flight: Flight, api: FlightHandler, model: str = ..., **kwargs):
+#         # directly disables the Entity if airplanes are (globally) not shown
+#         if not api.show:
+#             self.disable()
+#
+#         # get airline information
+#         self.airline = {
+#             "Name": flight.airline_icao
+#         }
+#         if flight.airline_icao in api.airlines:
+#             self.airline = api.airlines[flight.airline_icao]
+#
+#         # self.shader = lit_with_shadows_shader
+#
+#         self.api: FlightRadar24API = api
+#         self.flight: Flight = flight
+#
+#         if model is ...:
+#             model = self.base_model_path
+#
+#         # calculate correct position for airplane
+#         should = Vector3D.from_polar(
+#             angle_xy=flight.longitude * (PI / 180),
+#             angle_xz=flight.latitude * (PI / 180),
+#             length=foot_to_length(flight.altitude)
+#         )
+#
+#         rot = (
+#             flight.latitude,
+#             -90 - flight.longitude,
+#             flight.heading
+#         )
+#
+#         # initialize parent class (Entity)
+#         super().__init__(
+#             model=load_model(model, use_deepcopy=True),
+#             collider="sphere",
+#             color=(.9, .9, .9, 1),
+#             scale=self.size,
+#             position=(should.x, should.z, should.y),
+#             rotation=rot,
+#             origin=(0, 0, 0),
+#             **kwargs,
+#         )
+#
+#         self._origin_airport: dict = ...
+#         self._destination_airport: dict = ...
+#
+#         if self.flight.squawk != "N/A":
+#             print(f"SQUAWK {self.flight.squawk} at flight {self.flight.icao_24bit}: {flight}")
+#
+#     @property
+#     def origin_airport(self) -> dict:
+#         if self._origin_airport is ...:
+#             with suppress(KeyError):
+#                 self._origin_airport = self.api.get_airport(self.flight.origin_airport_iata)
+#
+#         return self._origin_airport
+#
+#     @property
+#     def destination_airport(self) -> dict:
+#         if self._destination_airport is ...:
+#             with suppress(KeyError):
+#                 self._destination_airport = self.api.get_airport(self.flight.destination_airport_iata)
+#
+#         return self._destination_airport
+#
+#     def update_data(self, flight: Flight = ...) -> None:
+#         """
+#         update airplane position, rotation and other values
+#         """
+#         if flight is ...:
+#             return
+#
+#         self.flight = flight
+#         should = Vector3D.from_polar(
+#             angle_xy=self.flight.longitude * (PI / 180),
+#             angle_xz=self.flight.latitude * (PI / 180),
+#             length=foot_to_length(self.flight.altitude)
+#         )
+#
+#         rot = (
+#             self.flight.latitude,
+#             -90 - self.flight.longitude,
+#             self.flight.heading
+#         )
+#         self.rotation = rot
+#         self.position = should.x, should.z, should.y
 
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        flights = self.get_flights()
-
-        # later used variables
-        self.__shown: bool = True
-        self._flights: dict[str, Airplane] = {}
-        self.airlines: dict[str, dict] = {}
-
-        self.timer: Timer = ...
-
-        # [threaded] for creating airplane instances and downloading airlines
-        def tmp():
-            # update airline database
-            airlines = self.get_airlines()
-            for airline in airlines:
-                self.airlines[airline["ICAO"]] = airline
-
-            # create Airplane instances
-            for flight in flights:
-                if flight.icao_24bit in self._flights:
-                    self.remove(self._flights[flight.icao_24bit])
-
-                self._flights[flight.icao_24bit] = Airplane(flight, self)
-
-            # schedule Airplane updates
-            self.timer = Timer(
-                interval=self.update_interval,
-                function=lambda: Thread(target=self.update).start()
-            )
-            self.timer.start()
-
-        Thread(target=tmp).start()
-
-    @property
-    def show(self) -> bool:
-        return self.__shown
-
-    @show.setter
-    def show(self, value: bool) -> None:
-        self.__shown = value
-        for flight in self._flights.copy().values():
-            if value:
-                flight.enable()
-                continue
-
-            flight.disable()
-
-    def update(self) -> None:
-        """
-        updates the position and other positions of the airplanes
-        """
-        flights = self.get_flights()
-        n = 0
-        updated: list[Airplane] = []
-        for flight in flights:
-            if flight.icao_24bit not in self._flights:
-                n += 1
-                self._flights[flight.icao_24bit] = Airplane(flight, self)
-
-            self._flights[flight.icao_24bit].update_data(flight)
-            updated.append(self._flights[flight.icao_24bit])
-
-        # delete flights not in updated list
-        for flight in {*self._flights.values()} - {*updated}:
-            self.remove(flight)
-
-        # reschedule update
-        self.timer = Timer(interval=self.update_interval, function=lambda: Thread(target=self.update).start())
-        self.timer.start()
-
-    def remove(self, flight: "Airplane") -> None:
-        # remove and disable an Airplane
-        with suppress(KeyError):
-            self._flights.pop(flight.flight.icao_24bit)
-            flight.disable()
-            destroy(flight)
-
-    def end(self) -> None:
-        # remove all airplanes and cancel the timer
-        if self.timer is not ...:
-            self.timer.cancel()
-
-        for airplane in self._flights.copy().values():
-            self.remove(airplane)
-
-
-class Airplane(Entity):
-    base_model_path: str = "./assets/airplane/pa.obj"
-    active_color: tuple[float, float, float, float] = (0, 1, .1, 1)
-    update_time: float = .5
-    size: float = .05
-
-    def __init__(self, flight: Flight, api: FlightHandler, model: str = ..., **kwargs):
-        # directly disables the Entity if airplanes are (globally) not shown
-        if not api.show:
-            self.disable()
-
-        # get airline information
-        self.airline = {
-            "Name": flight.airline_icao
-        }
-        if flight.airline_icao in api.airlines:
-            self.airline = api.airlines[flight.airline_icao]
-
-        # self.shader = lit_with_shadows_shader
-
-        self.api: FlightRadar24API = api
-        self.flight: Flight = flight
-
-        if model is ...:
-            model = self.base_model_path
-
-        # calculate correct position for airplane
-        should = Vector3D.from_polar(
-            angle_xy=flight.longitude * (PI / 180),
-            angle_xz=flight.latitude * (PI / 180),
-            length=foot_to_length(flight.altitude)
-        )
-
-        rot = (
-            flight.latitude,
-            -90 - flight.longitude,
-            flight.heading
-        )
-
-        # initialize parent class (Entity)
-        super().__init__(
-            model=load_model(model, use_deepcopy=True),
-            collider="sphere",
-            color=(.9, .9, .9, 1),
-            scale=self.size,
-            position=(should.x, should.z, should.y),
-            rotation=rot,
-            origin=(0, 0, 0),
-            **kwargs,
-        )
-
-        self._origin_airport: dict = ...
-        self._destination_airport: dict = ...
-
-        if self.flight.squawk != "N/A":
-            print(f"SQUAWK {self.flight.squawk} at flight {self.flight.icao_24bit}: {flight}")
-
-    @property
-    def origin_airport(self) -> dict:
-        if self._origin_airport is ...:
-            with suppress(KeyError):
-                self._origin_airport = self.api.get_airport(self.flight.origin_airport_iata)
-
-        return self._origin_airport
-
-    @property
-    def destination_airport(self) -> dict:
-        if self._destination_airport is ...:
-            with suppress(KeyError):
-                self._destination_airport = self.api.get_airport(self.flight.destination_airport_iata)
-
-        return self._destination_airport
-
-    def update_data(self, flight: Flight = ...) -> None:
-        """
-        update airplane position, rotation and other values
-        """
-        if flight is ...:
-            return
-
-        self.flight = flight
-        should = Vector3D.from_polar(
-            angle_xy=self.flight.longitude * (PI / 180),
-            angle_xz=self.flight.latitude * (PI / 180),
-            length=foot_to_length(self.flight.altitude)
-        )
-
-        rot = (
-            self.flight.latitude,
-            -90 - self.flight.longitude,
-            self.flight.heading
-        )
-        self.rotation = rot
-        self.position = should.x, should.z, should.y
+class Airplane:
+    ...
 
 
 class Selection:
